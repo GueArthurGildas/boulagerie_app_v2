@@ -594,6 +594,10 @@
         <a href="{{ route('matieres-premieres.index') }}" class="nav-item {{ request()->routeIs('matieres-premieres.*') ? 'active' : '' }}">
             <i class="ri-stack-line"></i> Matières premières
         </a>
+        <div class="nav-section">Gestion</div>
+        <a href="{{ route('depenses.index') }}" class="nav-item {{ request()->routeIs('depenses.*') ? 'active' : '' }}">
+            <i class="ri-money-dollar-circle-line"></i> Dépenses
+        </a>
     </nav>
 
     <div class="sidebar-footer">
