@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Production;
 use App\Models\Recette;
 use App\Models\Produit;
+use App\Models\IncidentProduction;
 use App\Services\ProductionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,7 @@ class ProductionController extends Controller
 
     public function index(Request $request)
     {
-        $query = Production::with(['recette', 'createdBy'])->orderByDesc('date_production')->orderByDesc('id');
+        $query = Production::with(['recette', 'createdBy'])->orderByDesc('date_production');
 
         if ($request->filled('date'))   $query->whereDate('date_production', $request->date);
         if ($request->filled('statut')) $query->where('statut', $request->statut);
@@ -59,9 +60,6 @@ class ProductionController extends Controller
         return view('production.show', compact('production', 'produits'));
     }
 
-    /**
-     * Clôturer une fournée en cours
-     */
     public function close(Request $request, Production $production)
     {
         $request->validate([
@@ -73,76 +71,13 @@ class ProductionController extends Controller
 
         try {
             $this->productionService->closeFournee($production, $request->lignes);
-            return redirect()->route('productions.show', $production)
+            return redirect()->route('productions.index')
                 ->with('success', 'Fournée clôturée avec succès.');
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
-    /**
-     * Corriger les quantités produites d'une fournée terminée
-     */
-    public function correct(Request $request, Production $production)
-    {
-        $request->validate([
-            'lignes'                     => 'required|array|min:1',
-            'lignes.*.produit_id'        => 'required|exists:produits,id',
-            'lignes.*.quantite_produite' => 'required|integer|min:0',
-            'lignes.*.quantite_invendue' => 'nullable|integer|min:0',
-            'motif_correction'           => 'required|string|min:5|max:255',
-        ]);
-
-        try {
-            $this->productionService->correctFournee($production, $request->lignes, $request->motif_correction);
-            return redirect()->route('productions.show', $production)
-                ->with('success', 'Fournée corrigée. Note : le stock n\'est pas modifié par cette correction.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Mettre à jour uniquement les invendus
-     */
-    public function updateInvendus(Request $request, Production $production)
-    {
-        $request->validate([
-            'lignes'                     => 'required|array|min:1',
-            'lignes.*.ligne_id'          => 'required|exists:production_lignes,id',
-            'lignes.*.quantite_invendue' => 'required|integer|min:0',
-        ]);
-
-        try {
-            $this->productionService->updateInvendus($production, $request->lignes);
-            return redirect()->route('productions.show', $production)
-                ->with('success', 'Invendus mis à jour avec succès.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Annuler une fournée et restituer le stock
-     */
-    public function annuler(Request $request, Production $production)
-    {
-        $request->validate([
-            'motif_annulation' => 'required|string|min:5|max:255',
-        ]);
-
-        try {
-            $this->productionService->annulerFournee($production, $request->motif_annulation);
-            return redirect()->route('productions.index')
-                ->with('success', 'Fournée annulée. Le stock des matières a été restitué.');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Enregistrer un incident
-     */
     public function storeIncident(Request $request, Production $production)
     {
         $request->validate([
@@ -163,9 +98,6 @@ class ProductionController extends Controller
         return back()->with('success', 'Incident enregistré.');
     }
 
-    /**
-     * Vérifier stock disponible pour une recette (API)
-     */
     public function verifierStock(Recette $recette)
     {
         $recette->load('lignes.matierePremiere');
