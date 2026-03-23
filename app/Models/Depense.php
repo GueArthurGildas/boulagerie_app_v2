@@ -10,10 +10,10 @@ class Depense extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'categorie_depense_id', 'libelle', 'montant', 'mode_paiement',
-        'reference_mobile', 'date_depense', 'beneficiaire', 'notes',
-        'statut', 'valide_par', 'valide_le',
-        'est_recurrente', 'frequence_recurrence',
+        'categorie_depense_id', 'fournisseur_id', 'source_type', 'source_id',
+        'libelle', 'montant', 'mode_paiement', 'reference_mobile',
+        'date_depense', 'beneficiaire', 'notes', 'statut',
+        'valide_par', 'valide_le', 'est_recurrente', 'frequence_recurrence',
         'created_by', 'updated_by',
     ];
 
@@ -27,6 +27,16 @@ class Depense extends Model
     public function categorie()
     {
         return $this->belongsTo(CategorieDepense::class, 'categorie_depense_id');
+    }
+
+    public function fournisseur()
+    {
+        return $this->belongsTo(Fournisseur::class);
+    }
+
+    public function source()
+    {
+        return $this->morphTo('source');
     }
 
     public function validePar()
@@ -51,7 +61,7 @@ class Depense extends Model
         };
     }
 
-    public function scopeValidees($query)   { return $query->where('statut', 'validee'); }
-    public function scopeBrouillons($query) { return $query->where('statut', 'brouillon'); }
-    public function scopeRejetees($query)   { return $query->where('statut', 'rejetee'); }
+    public function scopeValidees($q)   { return $q->where('statut', 'validee'); }
+    public function scopeBrouillons($q) { return $q->where('statut', 'brouillon'); }
+    public function scopeRejetees($q)   { return $q->where('statut', 'rejetee'); }
 }

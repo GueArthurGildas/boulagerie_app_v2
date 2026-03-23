@@ -598,6 +598,9 @@
         <a href="{{ route('depenses.index') }}" class="nav-item {{ request()->routeIs('depenses.*') ? 'active' : '' }}">
             <i class="ri-money-dollar-circle-line"></i> Dépenses
         </a>
+        <a href="{{ route('fournisseurs.index') }}" class="nav-item {{ request()->routeIs('fournisseurs.*') ? 'active' : '' }}">
+            <i class="ri-truck-line"></i> Fournisseurs
+        </a>
     </nav>
 
     <div class="sidebar-footer">
