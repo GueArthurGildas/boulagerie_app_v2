@@ -39,30 +39,30 @@ class FournisseurController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nom'             => 'required|string|max:150',
-            'telephone'       => 'nullable|string|max:20',
-            'email'           => 'nullable|email|max:150',
-            'adresse'         => 'nullable|string|max:255',
-            'ville'           => 'nullable|string|max:100',
-            'contact_nom'     => 'nullable|string|max:150',
-            'type'            => 'nullable|string|max:50',
-            'plafond_credit'  => 'nullable|integer|min:0',
-            'notes'           => 'nullable|string',
+            'nom'            => 'required|string|max:150',
+            'telephone'      => 'nullable|string|max:20',
+            'email'          => 'nullable|email|max:150',
+            'adresse'        => 'nullable|string|max:255',
+            'ville'          => 'nullable|string|max:100',
+            'contact_nom'    => 'nullable|string|max:150',
+            'type'           => 'nullable|string|max:50',
+            'plafond_credit' => 'nullable|integer|min:0',
+            'notes'          => 'nullable|string',
         ]);
 
-        // Fournisseur::create(array_merge($request->validated(), ['created_by' => Auth::id()]));
         Fournisseur::create(array_merge($request->only([
             'nom', 'telephone', 'email', 'adresse', 'ville',
-            'contact_nom', 'type', 'plafond_credit', 'notes'
+            'contact_nom', 'type', 'plafond_credit', 'notes',
         ]), ['created_by' => Auth::id()]));
 
-        return redirect()->route('fournisseurs.index')->with('success', 'Fournisseur créé.');
+        return redirect()->route('fournisseurs.index')
+            ->with('success', 'Fournisseur créé avec succès.');
     }
 
     public function show(Fournisseur $fournisseur)
     {
         $fournisseur->load([
-            'achats' => fn($q) => $q->orderByDesc('date_achat')->limit(10),
+            'achats' => fn($q) => $q->with('lignes')->orderByDesc('date_achat')->limit(10),
             'reglements' => fn($q) => $q->orderByDesc('date_reglement')->limit(10),
         ]);
 
@@ -72,10 +72,12 @@ class FournisseurController extends Controller
             ->limit(10)
             ->get();
 
-        $totalAchats    = $fournisseur->achats()->where('statut', '!=', 'brouillon')->sum('montant_total');
+        $totalAchats     = $fournisseur->achats()->where('statut', '!=', 'brouillon')->sum('montant_total');
         $totalReglements = $fournisseur->reglements()->sum('montant');
 
-        return view('fournisseurs.show', compact('fournisseur', 'depenses', 'totalAchats', 'totalReglements'));
+        return view('fournisseurs.show', compact(
+            'fournisseur', 'depenses', 'totalAchats', 'totalReglements'
+        ));
     }
 
     public function edit(Fournisseur $fournisseur)
@@ -97,13 +99,13 @@ class FournisseurController extends Controller
             'notes'          => 'nullable|string',
         ]);
 
-        // $fournisseur->update(array_merge($request->validated(), ['updated_by' => Auth::id()]));
         $fournisseur->update(array_merge($request->only([
             'nom', 'telephone', 'email', 'adresse', 'ville',
-            'contact_nom', 'type', 'plafond_credit', 'notes'
+            'contact_nom', 'type', 'plafond_credit', 'notes',
         ]), ['updated_by' => Auth::id()]));
 
-        return redirect()->route('fournisseurs.show', $fournisseur)->with('success', 'Fournisseur mis à jour.');
+        return redirect()->route('fournisseurs.show', $fournisseur)
+            ->with('success', 'Fournisseur mis à jour.');
     }
 
     public function destroy(Fournisseur $fournisseur)
@@ -112,7 +114,8 @@ class FournisseurController extends Controller
             return back()->withErrors(['error' => 'Impossible : ce fournisseur a des achats enregistrés.']);
         }
         $fournisseur->delete();
-        return redirect()->route('fournisseurs.index')->with('success', 'Fournisseur supprimé.');
+        return redirect()->route('fournisseurs.index')
+            ->with('success', 'Fournisseur supprimé.');
     }
 
     /* ── ACHATS ───────────────────────────────────────────────── */
@@ -121,21 +124,22 @@ class FournisseurController extends Controller
     {
         $achats   = $fournisseur->achats()->with('lignes.matierePremiere')->orderByDesc('date_achat')->paginate(15);
         $matieres = MatierePremiere::where('actif', true)->orderBy('nom')->get();
+
         return view('fournisseurs.achats', compact('fournisseur', 'achats', 'matieres'));
     }
 
     public function storeAchat(Request $request, Fournisseur $fournisseur)
     {
         $request->validate([
-            'reference'             => 'nullable|string|max:50',
-            'date_achat'            => 'required|date',
-            'date_echeance'         => 'nullable|date|after_or_equal:date_achat',
-            'mode_paiement'         => 'required|in:cash,orange_money,wave,mtn_momo,banque,credit,autre',
-            'notes'                 => 'nullable|string',
-            'lignes'                => 'required|array|min:1',
-            'lignes.*.matiere_premiere_id' => 'required|exists:matiere_premieres,id',
-            'lignes.*.quantite'     => 'required|numeric|min:0.001',
-            'lignes.*.prix_unitaire'=> 'required|integer|min:1',
+            'reference'                          => 'nullable|string|max:50',
+            'date_achat'                         => 'required|date',
+            'date_echeance'                      => 'nullable|date|after_or_equal:date_achat',
+            'mode_paiement'                      => 'required|in:cash,orange_money,wave,mtn_momo,banque,credit,autre',
+            'notes'                              => 'nullable|string',
+            'lignes'                             => 'required|array|min:1',
+            'lignes.*.matiere_premiere_id'       => 'required|exists:matiere_premieres,id',
+            'lignes.*.quantite'                  => 'required|numeric|min:0.001',
+            'lignes.*.prix_unitaire'             => 'required|integer|min:1',
         ]);
 
         $achat = DB::transaction(function () use ($request, $fournisseur) {
@@ -158,6 +162,10 @@ class FournisseurController extends Controller
                     'prix_unitaire'       => $ligne['prix_unitaire'],
                 ]);
             }
+
+            // Calculer le montant total brouillon
+            $total = collect($request->lignes)->sum(fn($l) => intval($l['quantite'] * $l['prix_unitaire']));
+            $achat->update(['montant_total' => $total]);
 
             return $achat;
         });
@@ -183,6 +191,24 @@ class FournisseurController extends Controller
         }
     }
 
+    /**
+     * Annuler un achat en brouillon — suppression simple, aucun effet sur le stock
+     */
+    public function annulerAchat(Fournisseur $fournisseur, Achat $achat)
+    {
+        if ($achat->statut !== 'brouillon') {
+            return back()->withErrors(['error' => 'Seuls les achats en brouillon peuvent être annulés. Pour un achat validé, utilisez la procédure de retour fournisseur.']);
+        }
+
+        DB::transaction(function () use ($achat) {
+            $achat->lignes()->delete();
+            $achat->delete();
+        });
+
+        return redirect()->route('fournisseurs.show', $fournisseur)
+            ->with('success', 'Achat brouillon annulé et supprimé.');
+    }
+
     /* ── RÈGLEMENTS ───────────────────────────────────────────── */
 
     public function storeReglement(Request $request, Fournisseur $fournisseur)
@@ -199,7 +225,10 @@ class FournisseurController extends Controller
 
         try {
             $this->fournisseurService->creerReglement(
-                array_merge($request->validated(), ['fournisseur_id' => $fournisseur->id])
+                array_merge($request->only([
+                    'achat_id', 'montant', 'date_reglement',
+                    'mode_paiement', 'reference_mobile', 'reference_banque', 'notes',
+                ]), ['fournisseur_id' => $fournisseur->id])
             );
             return back()->with('success', 'Règlement enregistré et dépense créée automatiquement.');
         } catch (\Exception $e) {
@@ -211,12 +240,9 @@ class FournisseurController extends Controller
 
     public function lierDepense(Request $request, Fournisseur $fournisseur)
     {
-        $request->validate([
-            'depense_id' => 'required|exists:depenses,id',
-        ]);
+        $request->validate(['depense_id' => 'required|exists:depenses,id']);
 
-        $depense = Depense::findOrFail($request->depense_id);
-        $depense->update([
+        Depense::findOrFail($request->depense_id)->update([
             'fournisseur_id' => $fournisseur->id,
             'updated_by'     => Auth::id(),
         ]);
